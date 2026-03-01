@@ -24,6 +24,11 @@ class ProjectStatusResponse(BaseModel):
     project_id: int
     status: str
     progress: float = 0.0
+    current_phase: int = 1
+    total_phases: int = 5
+    phase_name: str = "queued"
+    error_message: str | None = None
+    error_code: str | None = None
 
 
 class TabResponse(BaseModel):

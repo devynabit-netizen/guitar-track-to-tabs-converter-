@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.db.session import get_db
 from app.schemas.transcription import ProjectCreateResponse, ProjectStatusResponse, TabResponse, MappedNote
 from app.services.exporters import ExportService
+from app.core.constants import PHASE_NAMES, TOTAL_PHASES
 from app.services.project_service import ProjectService
 from app.workers.queue import queue, run_transcription_job
 
@@ -35,18 +36,34 @@ async def create_project(
 
     project = ProjectService(db).create_project(name=name, audio_path=str(destination))
     queue.enqueue(run_transcription_job, project.id)
-    return ProjectCreateResponse(project_id=project.id, status="queued")
+    return ProjectCreateResponse(project_id=project.id, status=project.status)
 
 
 @router.get("/projects/{project_id}/status", response_model=ProjectStatusResponse)
 def project_status(project_id: int, db: Session = Depends(get_db)) -> ProjectStatusResponse:
-    _, latest = ProjectService(db).latest_tab(project_id)
-    return ProjectStatusResponse(project_id=project_id, status="complete" if latest else "processing", progress=1.0 if latest else 0.5)
+    try:
+        project, _ = ProjectService(db).latest_tab(project_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return ProjectStatusResponse(
+        project_id=project_id,
+        status=project.status,
+        progress=project.progress,
+        current_phase=project.current_phase,
+        total_phases=TOTAL_PHASES,
+        phase_name=PHASE_NAMES.get(project.current_phase, "unknown"),
+        error_message=project.error_message,
+        error_code=project.error_code,
+    )
 
 
 @router.get("/projects/{project_id}/tab", response_model=TabResponse)
 def get_tab(project_id: int, db: Session = Depends(get_db)) -> TabResponse:
-    project, latest = ProjectService(db).latest_tab(project_id)
+    try:
+        project, latest = ProjectService(db).latest_tab(project_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     if not latest:
         raise HTTPException(status_code=404, detail="Tab not ready")
 
@@ -62,7 +79,10 @@ def get_tab(project_id: int, db: Session = Depends(get_db)) -> TabResponse:
 
 @router.post("/projects/{project_id}/export/{fmt}")
 def export(project_id: int, fmt: str, db: Session = Depends(get_db)) -> dict[str, str]:
-    project, latest = ProjectService(db).latest_tab(project_id)
+    try:
+        project, latest = ProjectService(db).latest_tab(project_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     if not latest:
         raise HTTPException(status_code=404, detail="Tab not ready")
     notes = [MappedNote.model_validate(item) for item in latest.notes_mapped]

@@ -15,6 +15,15 @@ Response:
 ## Project Status
 `GET /api/v1/projects/{project_id}/status`
 
+Response fields:
+- `status`: `queued | processing | complete | failed`
+- `progress`: `0.0 - 1.0`
+- `current_phase`: current phase number (`1-5`)
+- `total_phases`: fixed at `5`
+- `phase_name`: `uploaded | preprocessing | transcribing | tab_generation | finalizing`
+- `error_message`: present when status is `failed`
+- `error_code`: machine-readable failure type when status is `failed`
+
 ## Get Tab
 `GET /api/v1/projects/{project_id}/tab`
 
