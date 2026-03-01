@@ -29,7 +29,7 @@ class TabVersion(Base):
     notes_raw: Mapped[list[dict]] = mapped_column(JSON, default=list)
     notes_mapped: Mapped[list[dict]] = mapped_column(JSON, default=list)
     tab_ascii: Mapped[str] = mapped_column(String, default="")
-    metadata: Mapped[dict] = mapped_column(JSON, default=dict)
+    tab_metadata: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     project: Mapped[Project] = relationship(back_populates="versions")
