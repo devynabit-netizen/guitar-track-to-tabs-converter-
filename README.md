@@ -14,7 +14,7 @@ Production-oriented full-stack application to upload guitar stems, transcribe au
   - Upload workflow, polling transcription progress, tab viewer/editor shell, playback controls.
   - WebAudio oscillator playback with cursor sync and tempo adjustment.
 - **Persistence**:
-  - `projects`: original audio and project metadata (tuning/tempo).
+  - `projects`: original audio and project metadata (tuning/tempo + lifecycle status).
   - `tab_versions`: versioned raw notes, mapped notes, ascii tab, metadata.
 
 ## Features Delivered
@@ -26,6 +26,19 @@ Production-oriented full-stack application to upload guitar stems, transcribe au
 - Browser playback controls (play/stop/tempo), scroll/progress cursor.
 - Export API for MIDI and GP5-compatible JSON package.
 - Version-ready schema for iterative user edits.
+- Five-phase status lifecycle + explicit failure metadata.
+
+## Processing Phases
+
+Projects report a five-phase lifecycle through `GET /api/v1/projects/{id}/status`:
+
+1. `uploaded`
+2. `preprocessing`
+3. `transcribing`
+4. `tab_generation`
+5. `finalizing`
+
+Status payload fields include `current_phase`, `total_phases`, `phase_name`, `progress`, `error_message`, and `error_code`.
 
 ## Setup
 
@@ -34,12 +47,17 @@ Production-oriented full-stack application to upload guitar stems, transcribe au
 - Node 20+
 - Docker (for PostgreSQL + Redis)
 
-### Infrastructure
+### Infrastructure only
 ```bash
-docker compose up -d
+docker compose up -d postgres redis
 ```
 
-### Backend
+### Full stack via docker compose
+```bash
+docker compose --profile app up --build
+```
+
+### Backend local
 ```bash
 cd backend
 python -m venv .venv
@@ -55,7 +73,7 @@ source .venv/bin/activate
 rq worker transcription
 ```
 
-### Frontend
+### Frontend local
 ```bash
 cd frontend
 npm install
@@ -64,6 +82,18 @@ npm run dev
 
 Open `http://localhost:5173`.
 
+## Database Migrations (Alembic)
+
+```bash
+cd backend
+alembic upgrade head
+```
+
+Generate a new migration:
+```bash
+alembic revision -m "describe_change"
+```
+
 ## API Overview
 
 - `POST /api/v1/projects` (multipart: `name`, `audio`)
@@ -71,6 +101,15 @@ Open `http://localhost:5173`.
 - `GET /api/v1/projects/{id}/tab`
 - `POST /api/v1/projects/{id}/export/midi`
 - `POST /api/v1/projects/{id}/export/gp5`
+
+## Ops Notes / Runbook
+
+- Health endpoint: `GET /health`
+- Requests include `X-Request-ID` in responses.
+- Common failure checks:
+  - Basic Pitch first-run model download delay.
+  - Redis/worker availability (`rq worker transcription`).
+  - DB connectivity and migration state (`alembic upgrade head`).
 
 ## Limitations & Known Edge Cases
 

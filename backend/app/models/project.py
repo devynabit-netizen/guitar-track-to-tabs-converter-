@@ -14,6 +14,11 @@ class Project(Base):
     audio_path: Mapped[str] = mapped_column(String(512), nullable=False)
     tuning: Mapped[list[str]] = mapped_column(JSON, default=["E2", "A2", "D3", "G3", "B3", "E4"])
     tempo_bpm: Mapped[float] = mapped_column(default=120.0)
+    status: Mapped[str] = mapped_column(String(32), default="queued", nullable=False)
+    progress: Mapped[float] = mapped_column(default=0.2, nullable=False)
+    current_phase: Mapped[int] = mapped_column(default=1, nullable=False)
+    error_message: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -29,7 +34,7 @@ class TabVersion(Base):
     notes_raw: Mapped[list[dict]] = mapped_column(JSON, default=list)
     notes_mapped: Mapped[list[dict]] = mapped_column(JSON, default=list)
     tab_ascii: Mapped[str] = mapped_column(String, default="")
-    metadata: Mapped[dict] = mapped_column(JSON, default=dict)
+    metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     project: Mapped[Project] = relationship(back_populates="versions")

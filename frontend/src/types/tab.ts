@@ -14,3 +14,14 @@ export type TabData = {
   notes: NoteEvent[];
   tab_ascii: string;
 };
+
+export type ProjectStatus = {
+  project_id: number;
+  status: string;
+  progress: number;
+  current_phase: number;
+  total_phases: number;
+  phase_name: string;
+  error_message?: string | null;
+  error_code?: string | null;
+};

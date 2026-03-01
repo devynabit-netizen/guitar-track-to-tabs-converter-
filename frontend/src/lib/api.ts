@@ -1,8 +1,9 @@
 import axios from 'axios';
-import { TabData } from '../types/tab';
+import { ProjectStatus, TabData } from '../types/tab';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1',
+  timeout: 15000,
 });
 
 export async function uploadProject(name: string, audio: File) {
@@ -15,7 +16,7 @@ export async function uploadProject(name: string, audio: File) {
 
 export async function getStatus(projectId: number) {
   const res = await api.get(`/projects/${projectId}/status`);
-  return res.data as { project_id: number; status: string; progress: number };
+  return res.data as ProjectStatus;
 }
 
 export async function getTab(projectId: number) {
