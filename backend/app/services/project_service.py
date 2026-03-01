@@ -44,7 +44,7 @@ class ProjectService:
             notes_raw=[n.model_dump() for n in raw_notes],
             notes_mapped=[n.model_dump() for n in mapped_quantized],
             tab_ascii=ascii_tab,
-            metadata={"tempo_bpm": project.tempo_bpm},
+            tab_metadata={"tempo_bpm": project.tempo_bpm},
         )
         self.db.add(version)
         self.db.commit()
