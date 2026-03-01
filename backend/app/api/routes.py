@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -20,7 +20,7 @@ settings = get_settings()
 
 @router.post("/projects", response_model=ProjectCreateResponse)
 async def create_project(
-    name: str,
+    name: str = Form(...),
     audio: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> ProjectCreateResponse:
