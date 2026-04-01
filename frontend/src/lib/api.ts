@@ -3,12 +3,13 @@ import { ProjectStatus, TabData } from '../types/tab';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1',
-  timeout: 15000,
+  timeout: 45000,
 });
 
-export async function uploadProject(name: string, audio: File) {
+export async function uploadProject(name: string, audio: File, tuning: string) {
   const data = new FormData();
   data.append('name', name);
+  data.append('tuning', tuning);
   data.append('audio', audio);
   const res = await api.post('/projects', data);
   return res.data as { project_id: number; status: string };

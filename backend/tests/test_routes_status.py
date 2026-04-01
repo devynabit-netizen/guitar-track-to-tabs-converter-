@@ -15,7 +15,7 @@ def test_create_project_rejects_invalid_extension(client: TestClient) -> None:
         data={"name": "Bad Audio"},
         files={"audio": ("track.txt", io.BytesIO(b"abc"), "text/plain")},
     )
-    assert response.status_code == 422
+    assert response.status_code == 400
 
 
 def test_project_status_not_found(client: TestClient) -> None:

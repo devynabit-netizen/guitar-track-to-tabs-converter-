@@ -15,11 +15,12 @@ export function TabEditor({ tab, cursor, onTempoChange }: { tab: TabData; cursor
           />
         </label>
       </div>
+      <p className="text-xs text-slate-400">Key: {tab.key_signature} · Time signature: {tab.time_signature} · Chords: {tab.chords.map((c) => c.label).join(', ') || 'N/A'}</p>
       <pre className="overflow-auto rounded bg-slate-900 p-4 text-sm leading-6">{tab.tab_ascii}</pre>
       <div className="h-2 rounded bg-slate-800">
         <div className="h-2 rounded bg-cyan-500" style={{ width: `${Math.min(100, cursor * 10)}%` }} />
       </div>
-      <p className="text-xs text-slate-400">Click/drag note editing can be extended with SVG hit-testing in the TabCanvas component.</p>
+      <p className="text-xs text-slate-400">Articulation markers are inferred for slides / hammer-ons / pull-offs in note metadata.</p>
     </div>
   );
 }

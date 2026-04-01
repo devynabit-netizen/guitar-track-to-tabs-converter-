@@ -62,7 +62,7 @@ def test_process_project_completes_and_sets_progress(monkeypatch) -> None:
                 NoteEvent(pitch_midi=64, start_time=0.0, duration=0.5, confidence=0.9, velocity=90)
             ],
         )
-        monkeypatch.setattr(service, "_run_tab_generation", lambda _project, notes: ([], "e|--|"))
+        monkeypatch.setattr(service, "_run_tab_generation", lambda _project, notes: ([], "e|--|", []))
 
         version = service.process_project(project.id)
         session.refresh(project)

@@ -1,24 +1,27 @@
 """Project domain service orchestrating transcription pipeline."""
 from __future__ import annotations
 
-from pathlib import Path
-
-import librosa
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.constants import PHASE_NAMES, TOTAL_PHASES, ProjectErrorCode, ProjectStatus
+from app.dsp.audio_pipeline import AudioPipeline
+from app.dsp.source_separation import SourceSeparator
+from app.ml.transcriber import TranscriptionService
 from app.models import Project, TabVersion
 from app.schemas.transcription import MappedNote
 from app.services.fretboard_mapper import FretboardMapper
 from app.services.tab_formatter import TabFormatter
-from app.ml.transcriber import TranscriptionService
 
 
 class ProjectService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.transcriber = TranscriptionService()
+        settings = get_settings()
+        self.audio_pipeline = AudioPipeline(target_lufs=settings.target_lufs)
+        self.separator = SourceSeparator(settings.stems_dir)
 
     def create_project(self, name: str, audio_path: str, tuning: list[str] | None = None) -> Project:
         project = Project(
@@ -58,16 +61,16 @@ class ProjectService:
 
         try:
             self._set_phase(project, phase=2)
-            self._run_preprocessing(project)
+            prep = self._run_preprocessing(project)
 
             self._set_phase(project, phase=3)
             raw_notes = self._run_transcription(project)
 
             self._set_phase(project, phase=4)
-            mapped_quantized, ascii_tab = self._run_tab_generation(project, raw_notes)
+            mapped_quantized, ascii_tab, chords = self._run_tab_generation(project, raw_notes)
 
             self._set_phase(project, phase=5)
-            version = self._persist_version(project, raw_notes, mapped_quantized, ascii_tab)
+            version = self._persist_version(project, raw_notes, mapped_quantized, ascii_tab, prep, chords)
 
             project.status = ProjectStatus.COMPLETE.value
             project.progress = 1.0
@@ -81,13 +84,19 @@ class ProjectService:
                 self._mark_failure(project, str(exc), ProjectErrorCode.UNKNOWN)
             raise
 
-    def _run_preprocessing(self, project: Project) -> None:
+    def _run_preprocessing(self, project: Project) -> dict[str, str | float]:
         try:
-            tempo, _ = librosa.beat.beat_track(path=Path(project.audio_path), units="time")
-            if tempo and tempo > 0:
-                project.tempo_bpm = float(tempo)
+            stems = self.separator.separate_if_needed(project.audio_path, mode="auto")
+            target_audio = stems.get("lead_guitar") or stems.get("rhythm_guitar") or project.audio_path
+            processed = self.audio_pipeline.load_and_process(target_audio)
+            project.tempo_bpm = processed.tempo_bpm
             self.db.add(project)
             self.db.commit()
+            return {
+                "time_signature": processed.time_signature,
+                "key_signature": processed.key_signature,
+                "target_audio": target_audio,
+            }
         except Exception as exc:  # noqa: BLE001
             self._mark_failure(project, f"Preprocessing failed: {exc}", ProjectErrorCode.PREPROCESSING_FAILED)
             raise
@@ -105,13 +114,14 @@ class ProjectService:
             mapped: list[MappedNote] = mapper.map_notes(raw_notes)
             formatter = TabFormatter(project.tempo_bpm)
             mapped_quantized = formatter.quantize(mapped)
+            chords = formatter.detect_chords(mapped_quantized)
             ascii_tab = formatter.to_ascii(mapped_quantized)
-            return mapped_quantized, ascii_tab
+            return mapped_quantized, ascii_tab, chords
         except Exception as exc:  # noqa: BLE001
             self._mark_failure(project, f"Tab generation failed: {exc}", ProjectErrorCode.TAB_GENERATION_FAILED)
             raise
 
-    def _persist_version(self, project: Project, raw_notes, mapped_quantized, ascii_tab: str) -> TabVersion:
+    def _persist_version(self, project: Project, raw_notes, mapped_quantized, ascii_tab: str, prep: dict[str, str | float], chords: list[dict[str, float | str]]) -> TabVersion:
         try:
             next_version = len(project.versions) + 1
             version = TabVersion(
@@ -120,7 +130,7 @@ class ProjectService:
                 notes_raw=[n.model_dump() for n in raw_notes],
                 notes_mapped=[n.model_dump() for n in mapped_quantized],
                 tab_ascii=ascii_tab,
-                metadata_json={"tempo_bpm": project.tempo_bpm, "phase_name": PHASE_NAMES[5]},
+                metadata_json={"tempo_bpm": project.tempo_bpm, "phase_name": PHASE_NAMES[5], **prep, "chords": chords},
             )
             self.db.add(version)
             self.db.commit()

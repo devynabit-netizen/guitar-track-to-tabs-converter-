@@ -3,6 +3,8 @@ export type NoteEvent = {
   start_time: number;
   duration: number;
   confidence: number;
+  articulation?: string | null;
+  chord?: string | null;
   string: number;
   fret: number;
 };
@@ -11,6 +13,9 @@ export type TabData = {
   project_id: number;
   tempo_bpm: number;
   tuning: string[];
+  key_signature: string;
+  time_signature: string;
+  chords: Array<{ time: number; label: string }>;
   notes: NoteEvent[];
   tab_ascii: string;
 };

@@ -50,9 +50,9 @@ export default function App() {
     return () => window.clearInterval(poll);
   }, [projectId, status]);
 
-  const handleUpload = async (name: string, file: File) => {
+  const handleUpload = async (name: string, file: File, tuning: string) => {
     try {
-      const created = await uploadProject(name, file);
+      const created = await uploadProject(name, file, tuning);
       setProjectId(created.project_id);
       setTab(null);
       setStatus({
@@ -80,7 +80,7 @@ export default function App() {
 
   return (
     <main className="max-w-5xl mx-auto p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Guitar Stem → Tablature</h1>
+      <h1 className="text-2xl font-bold">Guitar Track → Songsterr-Style Tablature</h1>
       <UploadPanel onSubmit={handleUpload} />
 
       <section className="rounded-lg border border-slate-800 p-4 space-y-3">
@@ -125,6 +125,9 @@ export default function App() {
         <>
           <PlaybackControls
             playing={playback.playing}
+            speed={playback.speed}
+            onSpeed={(v) => playback.setSpeed(v)}
+            onLoop={(start, end) => playback.setLoop({ start, end })}
             onPlay={playback.play}
             onStop={playback.stop}
             onExport={async (fmt) => {
