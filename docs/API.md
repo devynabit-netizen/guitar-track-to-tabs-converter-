@@ -5,7 +5,8 @@
 
 Form-data:
 - `name: string`
-- `audio: wav|mp3`
+- `tuning: string` (comma-separated, e.g. `E2,A2,D3,G3,B3,E4`)
+- `audio: wav|mp3|flac`
 
 Response:
 ```json
@@ -27,7 +28,13 @@ Response fields:
 ## Get Tab
 `GET /api/v1/projects/{project_id}/tab`
 
-Response includes tuning, tempo, mapped notes, and rendered ASCII tab.
+Response includes:
+- tuning
+- tempo
+- key/time signature
+- mapped notes with articulation/chord metadata
+- chord labels
+- rendered ASCII tab
 
 ## Exports
 `POST /api/v1/projects/{project_id}/export/midi`

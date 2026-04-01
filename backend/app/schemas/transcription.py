@@ -8,11 +8,13 @@ class NoteEvent(BaseModel):
     duration: float
     confidence: float = Field(ge=0.0, le=1.0)
     velocity: int | None = None
+    articulation: str | None = None
 
 
 class MappedNote(NoteEvent):
     string: int
     fret: int
+    chord: str | None = None
 
 
 class ProjectCreateResponse(BaseModel):
@@ -35,5 +37,8 @@ class TabResponse(BaseModel):
     project_id: int
     tempo_bpm: float
     tuning: list[str]
+    key_signature: str = "C"
+    time_signature: str = "4/4"
     notes: list[MappedNote]
+    chords: list[dict[str, float | str]] = Field(default_factory=list)
     tab_ascii: str

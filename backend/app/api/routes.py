@@ -4,14 +4,14 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.db.session import get_db
-from app.schemas.transcription import ProjectCreateResponse, ProjectStatusResponse, TabResponse, MappedNote
-from app.services.exporters import ExportService
 from app.core.constants import PHASE_NAMES, TOTAL_PHASES
+from app.db.session import get_db
+from app.schemas.transcription import MappedNote, ProjectCreateResponse, ProjectStatusResponse, TabResponse
+from app.services.exporters import ExportService
 from app.services.project_service import ProjectService
 from app.workers.queue import queue, run_transcription_job
 
@@ -21,20 +21,26 @@ settings = get_settings()
 
 @router.post("/projects", response_model=ProjectCreateResponse)
 async def create_project(
-    name: str,
+    name: str = Form(...),
+    tuning: str = Form("E2,A2,D3,G3,B3,E4"),
     audio: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> ProjectCreateResponse:
     ext = Path(audio.filename or "track.wav").suffix.lower()
-    if ext not in {".wav", ".mp3"}:
-        raise HTTPException(status_code=400, detail="Only WAV/MP3 supported")
+    if ext not in {".wav", ".mp3", ".flac"}:
+        raise HTTPException(status_code=400, detail="Only WAV/MP3/FLAC supported")
+
+    payload = await audio.read()
+    if len(payload) > settings.max_upload_mb * 1024 * 1024:
+        raise HTTPException(status_code=413, detail=f"File exceeds {settings.max_upload_mb}MB")
 
     upload_dir = Path(settings.uploads_dir)
     upload_dir.mkdir(parents=True, exist_ok=True)
     destination = upload_dir / f"{uuid4().hex}{ext}"
-    destination.write_bytes(await audio.read())
+    destination.write_bytes(payload)
 
-    project = ProjectService(db).create_project(name=name, audio_path=str(destination))
+    tuning_list = [item.strip() for item in tuning.split(",") if item.strip()]
+    project = ProjectService(db).create_project(name=name, audio_path=str(destination), tuning=tuning_list)
     queue.enqueue(run_transcription_job, project.id)
     return ProjectCreateResponse(project_id=project.id, status=project.status)
 
@@ -68,10 +74,14 @@ def get_tab(project_id: int, db: Session = Depends(get_db)) -> TabResponse:
         raise HTTPException(status_code=404, detail="Tab not ready")
 
     notes = [MappedNote.model_validate(item) for item in latest.notes_mapped]
+    metadata = latest.metadata_json or {}
     return TabResponse(
         project_id=project.id,
         tempo_bpm=project.tempo_bpm,
         tuning=project.tuning,
+        key_signature=str(metadata.get("key_signature", "C")),
+        time_signature=str(metadata.get("time_signature", "4/4")),
+        chords=list(metadata.get("chords", [])),
         notes=notes,
         tab_ascii=latest.tab_ascii,
     )
